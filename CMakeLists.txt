@@ -26,9 +26,7 @@ file(MAKE_DIRECTORY ${GENERATED_API_DIR})
 
 add_custom_command(
     OUTPUT ${GENERATED_API_DIR}/api_interface.h ${GENERATED_API_DIR}/api_server.h
-    COMMAND ${CMAKE_COMMAND} -E env
-        PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/external/yaml-cpp
-        python ${CMAKE_CURRENT_SOURCE_DIR}/scripts/generate_api.py
+    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/scripts/generate_api.py
         ${CMAKE_CURRENT_SOURCE_DIR}/api_definition.yaml
         ${GENERATED_API_DIR}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/api_definition.yaml

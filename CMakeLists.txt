@@ -20,6 +20,11 @@ set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 set(JSON_Install OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/json)
 
+set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/yaml-cpp)
+
 add_executable(${PROJECT_NAME} src/main.cpp)
 
 if(WIN32)
@@ -32,4 +37,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     webview::core
     httplib::httplib
     nlohmann_json::nlohmann_json
+    yaml-cpp
 )

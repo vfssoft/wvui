@@ -1,5 +1,5 @@
 #include "rest_server.h"
-#include "generated/api_server.h"
+#include "api_server.h"
 #include <string>
 #include <ctime>
 

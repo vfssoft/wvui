@@ -1,6 +1,6 @@
 #pragma once
 
-#include "generated/api_interface.h"
+#include "api_interface.h"
 #include "httplib.h"
 #include <chrono>
 #include <thread>

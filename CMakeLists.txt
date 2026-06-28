@@ -21,8 +21,7 @@ set(JSON_Install OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/json)
 
 # Generate API code from YAML
-set(GENERATED_API_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/generated)
-file(MAKE_DIRECTORY ${GENERATED_API_DIR})
+set(GENERATED_API_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_custom_command(
     OUTPUT ${GENERATED_API_DIR}/api_interface.h ${GENERATED_API_DIR}/api_server.h

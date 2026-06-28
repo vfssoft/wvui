@@ -19,4 +19,5 @@ Makefile
 *.user
 *.suo
 *.sln
-src/generated/
+src/api_interface.h
+src/api_server.h

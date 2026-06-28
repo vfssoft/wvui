@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+import yaml
+import os
+import sys
+from pathlib import Path
+
+
+def to_snake_case(name):
+    """Convert to snake_case"""
+    import re
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
+def to_pascal_case(name):
+    """Convert to PascalCase"""
+    parts = name.replace('-', '_').split('_')
+    return ''.join(p[0].upper() + p[1:] for p in parts if p)
+
+
+def cpp_type_from_schema(schema):
+    """Convert JSON schema type to C++ type"""
+    type_ = schema.get('type')
+    if type_ == 'string':
+        return 'std::string'
+    elif type_ == 'integer':
+        return 'int'
+    elif type_ == 'number':
+        return 'double'
+    elif type_ == 'boolean':
+        return 'bool'
+    elif type_ == 'array':
+        item_type = cpp_type_from_schema(schema.get('items', {}))
+        return f'std::vector<{item_type}>'
+    elif type_ == 'object':
+        # Generate struct name from properties
+        props = sorted(schema.get('properties', {}).keys())
+        return to_pascal_case('_'.join(props)) + 'Dto'
+    return 'std::string'
+
+
+def generate_struct(name, schema):
+    """Generate C++ struct from JSON schema"""
+    props = schema.get('properties', {})
+    if not props:
+        return ''
+    
+    lines = [f'struct {name} {{']
+    
+    # Member variables
+    for prop_name, prop_schema in props.items():
+        prop_type = cpp_type_from_schema(prop_schema)
+        lines.append(f'    {prop_type} {prop_name};')
+    
+    lines.append('};')
+    lines.append('')
+    return '\n'.join(lines)
+
+
+def generate_json_serialization(name, schema):
+    """Generate JSON serialization/deserialization code"""
+    props = schema.get('properties', {})
+    if not props:
+        return ''
+    
+    lines = [f'// {name} JSON serialization']
+    
+    # to_json
+    lines.append(f'inline void to_json(nlohmann::json& j, const {name}& obj) {{')
+    for prop_name in props:
+        lines.append(f'    j["{prop_name}"] = obj.{prop_name};')
+    lines.append('}')
+    lines.append('')
+    
+    # from_json
+    lines.append(f'inline void from_json(const nlohmann::json& j, {name}& obj) {{')
+    for prop_name in props:
+        lines.append(f'    if (j.contains("{prop_name}")) j.at("{prop_name}").get_to(obj.{prop_name});')
+    lines.append('}')
+    lines.append('')
+    
+    return '\n'.join(lines)
+
+
+def generate_endpoint_structs(endpoint):
+    """Generate DTO structs for endpoint"""
+    code = []
+    
+    # Request struct
+    request_schema = endpoint.get('request', {}).get('content', {}).get('application/json', {}).get('schema', {})
+    if request_schema.get('properties'):
+        req_name = to_pascal_case(endpoint['path'].replace('/', '_').strip('_')) + 'RequestDto'
+        code.append(generate_struct(req_name, request_schema))
+        code.append(generate_json_serialization(req_name, request_schema))
+    
+    # Response struct
+    response_schema = endpoint.get('response', {}).get('content', {}).get('application/json', {}).get('schema', {})
+    if response_schema.get('properties'):
+        resp_name = to_pascal_case(endpoint['path'].replace('/', '_').strip('_')) + 'ResponseDto'
+        code.append(generate_struct(resp_name, response_schema))
+        code.append(generate_json_serialization(resp_name, response_schema))
+    
+    return '\n'.join(code)
+
+
+def generate_interface_method(endpoint):
+    """Generate interface method signature"""
+    method = endpoint['method']
+    path = endpoint['path']
+    description = endpoint.get('description', '')
+    
+    func_name = to_snake_case(method + '_' + path.replace('/', '_').strip('_'))
+    
+    # Request type
+    request_schema = endpoint.get('request', {}).get('content', {}).get('application/json', {}).get('schema', {})
+    if request_schema.get('properties'):
+        req_name = to_pascal_case(path.replace('/', '_').strip('_')) + 'RequestDto'
+        req_param = f'const {req_name}& req'
+    else:
+        req_param = ''
+    
+    # Response type
+    response_schema = endpoint.get('response', {}).get('content', {}).get('application/json', {}).get('schema', {})
+    if response_schema.get('properties'):
+        resp_name = to_pascal_case(path.replace('/', '_').strip('_')) + 'ResponseDto'
+        return_type = resp_name
+    else:
+        return_type = 'void'
+    
+    comment = f'    // {method} {path} - {description}'
+    signature = f'    virtual {return_type} {func_name}({req_param}) = 0;'
+    
+    return comment, signature, func_name, return_type, req_param, request_schema, response_schema
+
+
+def generate_interface(yaml_data):
+    """Generate the API interface"""
+    endpoints = yaml_data.get('endpoints', [])
+    
+    lines = []
+    lines.append('#pragma once')
+    lines.append('')
+    lines.append('#include <string>')
+    lines.append('#include <vector>')
+    lines.append('#include "nlohmann/json.hpp"')
+    lines.append('')
+    lines.append('namespace api {')
+    lines.append('')
+    
+    # Generate structs
+    for endpoint in endpoints:
+        struct_code = generate_endpoint_structs(endpoint)
+        if struct_code:
+            lines.append(struct_code)
+    
+    # Generate interface
+    lines.append('// API Interface')
+    lines.append('class IApiHandler {')
+    lines.append('public:')
+    lines.append('    virtual ~IApiHandler() = default;')
+    lines.append('')
+    
+    methods = []
+    for endpoint in endpoints:
+        comment, signature, func_name, return_type, req_param, req_schema, resp_schema = generate_interface_method(endpoint)
+        lines.append(comment)
+        lines.append(signature)
+        lines.append('')
+        methods.append((endpoint, func_name, return_type, req_param, req_schema, resp_schema))
+    
+    lines.append('};')
+    lines.append('')
+    lines.append('} // namespace api')
+    
+    return '\n'.join(lines), methods
+
+
+def generate_server(yaml_data, methods):
+    """Generate the HTTP server code"""
+    lines = []
+    lines.append('#pragma once')
+    lines.append('')
+    lines.append('#include "api_interface.h"')
+    lines.append('#include "httplib.h"')
+    lines.append('#include <string>')
+    lines.append('#include <memory>')
+    lines.append('')
+    lines.append('namespace api {')
+    lines.append('')
+    lines.append('class ApiServer {')
+    lines.append('public:')
+    lines.append('    explicit ApiServer(std::shared_ptr<IApiHandler> handler)')
+    lines.append('        : handler_(std::move(handler)) {}')
+    lines.append('')
+    lines.append('    void setup_routes(httplib::Server& server) {')
+    
+    for endpoint, func_name, return_type, req_param, req_schema, resp_schema in methods:
+        path = endpoint['path']
+        method = endpoint['method'].lower()
+        
+        lines.append(f'        // {endpoint["method"]} {path}')
+        
+        if method == 'get':
+            lines.append(f'        server.Get("{path}", [this](const httplib::Request&, httplib::Response& res) {{')
+        elif method == 'post':
+            lines.append(f'        server.Post("{path}", [this](const httplib::Request& req, httplib::Response& res) {{')
+        
+        # Handle request
+        if req_schema.get('properties'):
+            req_name = to_pascal_case(path.replace('/', '_').strip('_')) + 'RequestDto'
+            lines.append(f'            try {{')
+            lines.append(f'                auto json = nlohmann::json::parse(req.body);')
+            lines.append(f'                {req_name} req_dto;')
+            lines.append(f'                from_json(json, req_dto);')
+            lines.append(f'                auto resp_dto = handler_->{func_name}(req_dto);')
+            lines.append(f'                nlohmann::json json_resp;')
+            lines.append(f'                to_json(json_resp, resp_dto);')
+            lines.append(f'                res.set_content(json_resp.dump(), "application/json");')
+            lines.append(f'            }} catch (...) {{')
+            lines.append(f'                res.status = 400;')
+            lines.append(f'                res.set_content(R"({{\"error\": \"Invalid request\"}})", "application/json");')
+            lines.append(f'            }}')
+        else:
+            lines.append(f'            auto resp_dto = handler_->{func_name}();')
+            lines.append(f'            nlohmann::json json_resp;')
+            lines.append(f'            to_json(json_resp, resp_dto);')
+            lines.append(f'            res.set_content(json_resp.dump(), "application/json");')
+        
+        lines.append(f'        }});')
+        lines.append('')
+    
+    lines.append('    }')
+    lines.append('')
+    lines.append('private:')
+    lines.append('    std::shared_ptr<IApiHandler> handler_;')
+    lines.append('};')
+    lines.append('')
+    lines.append('} // namespace api')
+    
+    return '\n'.join(lines)
+
+
+def main():
+    if len(sys.argv) < 3:
+        print(f'Usage: {sys.argv[0]} <yaml_file> <output_dir>')
+        sys.exit(1)
+    
+    yaml_file = Path(sys.argv[1])
+    output_dir = Path(sys.argv[2])
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    with open(yaml_file, 'r', encoding='utf-8') as f:
+        yaml_data = yaml.safe_load(f)
+    
+    # Generate interface
+    interface_code, methods = generate_interface(yaml_data)
+    interface_file = output_dir / 'api_interface.h'
+    with open(interface_file, 'w', encoding='utf-8') as f:
+        f.write(interface_code)
+    print(f'Generated: {interface_file}')
+    
+    # Generate server
+    server_code = generate_server(yaml_data, methods)
+    server_file = output_dir / 'api_server.h'
+    with open(server_file, 'w', encoding='utf-8') as f:
+        f.write(server_code)
+    print(f'Generated: {server_file}')
+
+
+if __name__ == '__main__':
+    main()

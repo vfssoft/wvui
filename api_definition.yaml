@@ -1,0 +1,79 @@
+# API Definition - Simple Test
+
+api:
+  name: "WVUI API"
+  version: "1.0.0"
+  description: "A simple REST API for webview UI communication"
+
+endpoints:
+  - path: "/api/hello"
+    method: "GET"
+    description: "Get a hello message"
+    response:
+      status: 200
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Hello, World!"
+
+  - path: "/api/data"
+    method: "GET"
+    description: "Get sample data"
+    response:
+      status: 200
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              items:
+                type: array
+                items:
+                  type: string
+              count:
+                type: integer
+
+  - path: "/api/echo"
+    method: "POST"
+    description: "Echo back the input data"
+    request:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+    response:
+      status: 200
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              received:
+                type: string
+              timestamp:
+                type: string
+
+  - path: "/api/status"
+    method: "GET"
+    description: "Get server status"
+    response:
+      status: 200
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: ["running", "stopped", "error"]
+              uptime:
+                type: integer
+              version:
+                type: string

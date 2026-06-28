@@ -40,7 +40,10 @@ add_custom_target(generate_api ALL
     DEPENDS ${GENERATED_API_DIR}/api_interface.h ${GENERATED_API_DIR}/api_server.h
 )
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME} 
+    src/main.cpp
+    src/rest_server.cpp
+)
 add_dependencies(${PROJECT_NAME} generate_api)
 
 if(WIN32)

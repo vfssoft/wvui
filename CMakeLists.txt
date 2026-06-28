@@ -12,6 +12,14 @@ set(WEBVIEW_BUILD_SHARED_LIBRARY OFF CACHE BOOL "" FORCE)
 set(WEBVIEW_BUILD_STATIC_LIBRARY OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/webview)
 
+set(HTTPLIB_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/cpp-httplib)
+
+set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+set(JSON_Install OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/json)
+
 add_executable(${PROJECT_NAME} src/main.cpp)
 
 if(WIN32)
@@ -22,4 +30,6 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     webview::core
+    httplib::httplib
+    nlohmann_json::nlohmann_json
 )

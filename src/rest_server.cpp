@@ -16,10 +16,10 @@ void RestServer::start(int port) {
     port_ = port;
     
     server_ = std::make_unique<httplib::Server>();
+    api_server_ = std::make_unique<api::ApiServer>(this);
     
     // Setup API routes
-    api::ApiServer api_server(shared_from_this());
-    api_server.setup_routes(*server_);
+    api_server_->setup_routes(*server_);
     
     // Setup common routes
     setup_common_routes(*server_);

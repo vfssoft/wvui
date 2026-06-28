@@ -1,6 +1,7 @@
 #pragma once
 
 #include "api_interface.h"
+#include "api_server.h"
 #include "httplib.h"
 #include <chrono>
 #include <thread>
@@ -10,7 +11,7 @@
 extern std::chrono::steady_clock::time_point g_start_time;
 
 // RestServer implementation
-class RestServer : public api::IApiHandler, public std::enable_shared_from_this<RestServer> {
+class RestServer : public api::IApiHandler {
 public:
     RestServer();
     ~RestServer();
@@ -28,6 +29,7 @@ private:
     void setup_common_routes(httplib::Server& server);
 
     std::unique_ptr<httplib::Server> server_;
+    std::unique_ptr<api::ApiServer> api_server_;
     std::unique_ptr<std::thread> server_thread_;
     int port_;
 };

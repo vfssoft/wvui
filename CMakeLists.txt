@@ -40,6 +40,7 @@ add_custom_target(generate_api ALL
 add_executable(${PROJECT_NAME} 
     src/main.cpp
     src/rest_server.cpp
+    src/window_utils.cpp
 )
 add_dependencies(${PROJECT_NAME} generate_api)
 

@@ -1,5 +1,6 @@
 #include "webview/webview.h"
 #include "rest_server.h"
+#include "window_utils.h"
 #include <memory>
 
 #ifdef _WIN32
@@ -17,8 +18,14 @@ int main() {
         webview::webview w(false, nullptr);
         w.set_title("WVUI - Webview UI");
         w.set_size(800, 600, WEBVIEW_HINT_NONE);
-        w.navigate(rest_server->get_url());
 
+        // Get native window handle and remove title bar
+        auto window_result = w.window();
+        if (window_result.ok()) {
+            WindowUtils::remove_title_bar(window_result.value());
+        }
+
+        w.navigate(rest_server->get_url());
         w.run();
 
     } catch (const std::exception& e) {
